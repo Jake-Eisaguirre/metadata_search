@@ -1,0 +1,69 @@
+---
+title: "metadata_search"
+format: html
+editor: visual
+---
+
+## Packages
+```{r}
+
+if (!require(librarian)){
+  install.packages("librarian")
+  library(librarian)
+}
+
+# librarian downloads, if not already downloaded, and reads in needed packages
+librarian::shelf(tidyverse, DBI, RPostgres)
+
+```
+
+## DB Connect
+```{r}
+
+tryCatch({
+    drv <- dbDriver("Postgres")
+    print("Connecting to Database…")
+    connection <- dbConnect(drv, 
+                 dbname = Sys.getenv("aws_dbname"),
+                 host = Sys.getenv("aws_host"), 
+                 port = Sys.getenv("aws_port"),
+                 user = Sys.getenv("aws_user"), 
+                 password = Sys.getenv("aws_password"),
+                 timezone=NULL)
+    print("Database Connected!")
+    },
+    error=function(cond) {
+            print("Unable to connect to Database.")
+    })
+
+dbSendQuery(connection, "set search_path = 'survey_data'")
+```
+
+## Query `survey` table
+```{r}
+
+sql <- "select l.location, r.region, s.site, v.date, s2.start_time, c.* 
+        from location l
+        join region r on l.location_id = r.location_id
+        join site s on r.region_id = s.region_id
+        join visit v on s.site_id = v.site_id
+        join survey s2 on v.visit_id = s2.visit_id
+        join capture c on s2.survey_id = c.survey_id;" 
+
+var_search <- dbGetQuery(connection, sql)
+
+```
+
+## look for location specific variables in `survey` table
+```{r}
+
+locs <- var_search %>% 
+  select(location, region, date, tad_stage) %>% 
+  drop_na(,4)
+
+
+
+unique(locs[2])
+
+```
+
